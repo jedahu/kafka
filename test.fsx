@@ -28,8 +28,6 @@ let lib =
         [ Dep.name "mscorlib"
           Dep.name "FSharp.Core"
           Dep.nuget "FSharpx.Core" 1 8 41 ""
-          Dep.nuget "FsControl" 1 0 9 ""
-          Dep.nuget "FSharpPlus" 0 0 4 ""
           Dep.name "System"
           Dep.name "System.Xml"
           Dep.name "System.Xml.Linq"
@@ -54,9 +52,7 @@ let test =
           Dep.path "../src/build/Steel.Finabs.dll"
           Dep.nuget "FSharpx.Core" 1 8 41 ""
           Dep.name "System"
-          Dep.name "xunit"
-          Dep.nuget "FsCheck" 1 0 0 ""
-          Dep.nuget "FsCheck.Xunit" 1 0 0 "" ]
+          Dep.nuget "FsCheck" 1 0 0 "" ]
       Meta =
         { Authors = [ "Jeremy Hughes" ]
           Description = "Tests" } }

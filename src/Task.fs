@@ -4,11 +4,108 @@ namespace Faker
 
 open FSharpx
 open FSharpx.Operators
+open FSharpx.Reader
+open FSharpx.Writer
+open FSharpx.State
 open FSharpx.Validation
 open FSharpx.Choice
 open FSharpx.Collections
 
 module Control =
+
+  module RWSAV =
+    type RWSAV<'r, 'w, 's, 'e, 'a> =
+      RWSAV of Reader<'r, Writer<'w, State<Async<Choice<'a, 'e>>, 's>>>
+
+    let rwsav x = RWSAV(x)
+
+    let unrwsav (RWSAV m) = m
+
+    let private wmap (wb : WriterBuilder<_>) f m =
+      Operators.liftM wb f m
+
+    let private wap (wb : WriterBuilder<_>) m f =
+      Operators.applyM wb wb f m
+
+    let private wlift2 o f a b =
+      let wb = WriterBuilder(o)
+      Writer.returnM o f |> wap wb a |> wap wb b
+
+    let liftAsync' o (m : Async<Choice<'a, 'e>>) : RWSAV<'r, 'w, 's, 'e, 'a> =
+      rwsav
+        (m |> State.returnM
+           |> Writer.returnM o
+           |> Reader.returnM)
+
+    let liftAsync'' o (m : Async<'a>) : RWSAV<'r, 'w, 's, 'e, 'a> =
+      liftAsync' o (Async.map Choice.returnM m)
+
+    let unit' o a : RWSAV<'r, 'w, 's, 'e, 'a> =
+      rwsav
+        (a |> Choice.returnM
+           |> Async.returnM
+           |> State.returnM
+           |> Writer.returnM o
+           |> Reader.returnM)
+
+    let map' o f (m : RWSAV<'r, 'w, 's, 'e, 'a>) : RWSAV<'r, 'w, 's, 'e, 'b> =
+      let map =
+        Reader.map
+          << wmap (WriterBuilder(o))
+          << State.map
+          << Async.map
+          << Choice.map
+      rwsav (map f (unrwsav m))
+
+    let ap' o g (m : RWSAV<'r, 'w, 's, 'e, 'a>) f : RWSAV<'r, 'w, 's, 'e, 'b> =
+      let lift = Reader.lift2 << wlift2 o << State.lift2 << Async.lift2
+      let vap = flip (Validation.apm g)
+      rwsav (lift vap (unrwsav f) (unrwsav m))
+
+    let ask' o : RWSAV<'r, 'w, 's, 'e, 'r> =
+      rwsav
+        (Writer.returnM o
+          << State.returnM
+          << Async.returnM
+          << Choice.returnM)
+
+    let tell w : RWSAV<'r, 'w, 's, 'e, unit> =
+      rwsav
+        (fun _ ->
+          fun () ->
+            (Choice.returnM () |> Async.returnM |> State.returnM, w))
+
+    let listen (m : RWSAV<'r, 'w, 's, 'e, 'a>) : RWSAV<'r, 'w, 's, 'e, 'a * 'w> =
+      rwsav
+        (fun r ->
+          fun () ->
+            let (x, w) = ((unrwsav m) r)()
+            let x' =
+              x |> (State.map << Async.map << Choice.map) (fun a -> (a, w))
+            (x', w))
+
+    let get' (o : Monoid<'w>) : RWSAV<'r, 'w, 's, 'e, 's> =
+      rwsav
+        (fun _ ->
+          fun () ->
+            ( (fun s -> (s |> Choice.returnM |> Async.returnM, s)),
+              o.Zero() ))
+
+    let put' (o : Monoid<'w>) s : RWSAV<'r, 'w, 's, 'e, unit> =
+      rwsav
+        (fun _ ->
+          fun () ->
+            ( (fun _ -> (() |> Choice.returnM |> Async.returnM, s)),
+              o.Zero() ))
+
+    let run (m : RWSAV<'r, 'w, 's, 'e, 'a>) r s : 'w * 's * Async<Choice<'a, 'e>> =
+      let (x, w) = ((unrwsav m) r)()
+      let (y, s) = x s
+      (w, s, y)
+
+    let exec m r s : Async<Choice<'a, 'e>> =
+      let (_, _, x) = run m r s in x
+
 
   module Task =
 
@@ -59,7 +156,7 @@ module Control =
 
     let inline (>=>) f g = fun x -> f x >>= g
 
-    let inline (<=<) x = flip (>=>) x
+    let inline (<=<) y x = x >=> y
 
     let inline ap m f = Operators.applyM task task f m
 

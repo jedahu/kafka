@@ -9,8 +9,6 @@ open FSharpx.Collections
 open FsCheck
 open Faker.Control
 open Faker.Control.Task
-open Faker.Control
-open Faker.Control.Task
 
 Arb.register<Faker.Test.Arbitraries>() |> ignore
 

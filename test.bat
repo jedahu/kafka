@@ -1,4 +1,4 @@
 @echo off
-mkdir bootstrap\Steel.Finabs\lib
-copy src\build\Steel.Finabs.dll bootstrap\Steel.Finabs\lib\Steel.Finabs.dll
+mkdir bootstrap
+copy src\build bootstrap\
 fsi test.fsx %*
